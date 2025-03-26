@@ -61,10 +61,22 @@ class CategoricalAccuracy(Metric):
         self.total_count = 0
 
     def __call__(self, y_pred, y_true):
-        top_k = y_pred.topk(self.top_k,1)[1]
-        true_k = y_true.view(len(y_true),1).expand_as(top_k)
-        self.correct_count += top_k.eq(true_k).float().sum().data[0]
-        self.total_count += len(y_pred)
+        """Compute top-k accuracy."""
+        # Get top-k predictions
+        top_k = y_pred.topk(self.top_k, dim=1)[1]  # Indices of top k predictions
+
+        # Ensure y_true is in class indices format (not one-hot)
+        if y_true.ndimension() > 1 and y_true.shape[1] > 1:
+            y_true = y_true.argmax(dim=1)  # Convert one-hot to class indices
+
+        # Expand y_true to match top_k shape
+        true_k = y_true.view(-1, 1).expand_as(top_k)
+
+        # Compute correct predictions
+        self.correct_count += top_k.eq(true_k).sum().item()  # Use .item() instead of .data[0]
+        self.total_count += y_true.size(0)  # Use batch size
+
+        # Compute accuracy
         accuracy = 100. * float(self.correct_count) / float(self.total_count)
         return accuracy
 
